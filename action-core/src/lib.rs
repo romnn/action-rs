@@ -64,13 +64,17 @@ pub mod env {
         }
 
         #[cfg(feature = "serde")]
-        pub fn from_str(env: &str) -> Result<Self, serde_yaml::Error> {
-            Ok(Self::new(serde_yaml::from_str(env)?))
-        }
-
-        #[cfg(feature = "serde")]
         pub fn from_reader(reader: impl std::io::Read) -> Result<Self, serde_yaml::Error> {
             Ok(Self::new(serde_yaml::from_reader(reader)?))
+        }
+    }
+
+    #[cfg(feature = "serde")]
+    impl std::str::FromStr for Env {
+        type Err = serde_yaml::Error;
+
+        fn from_str(env: &str) -> Result<Self, Self::Err> {
+            Ok(Self::new(serde_yaml::from_str(env)?))
         }
     }
 
@@ -154,14 +158,14 @@ pub mod utils {
     ///
     /// On Windows, \\ will be replaced with /.
     pub fn to_posix_path(path: impl AsRef<str>) -> String {
-        path.as_ref().replace("\\", "/")
+        path.as_ref().replace('\\', "/")
     }
 
     /// toWin32Path converts the given path to the win32 form.
     ///
     /// On Linux, / will be replaced with \\.
     pub fn to_win32_path(path: impl AsRef<str>) -> String {
-        path.as_ref().replace("/", "\\")
+        path.as_ref().replace('/', "\\")
     }
 
     /// toPlatformPath converts the given path to a platform-specific path.
@@ -170,8 +174,7 @@ pub mod utils {
     /// the platform-specific path separator.
     pub fn to_platform_path(path: impl AsRef<str>) -> String {
         path.as_ref()
-            .replace("/", std::path::MAIN_SEPARATOR_STR)
-            .replace("\\", std::path::MAIN_SEPARATOR_STR)
+            .replace(['/', '\\'], std::path::MAIN_SEPARATOR_STR)
     }
 
     pub fn escape_data(data: impl AsRef<str>) -> String {
@@ -273,7 +276,7 @@ pub fn export_var(name: impl AsRef<str>, value: impl ToString) -> Result<(), Val
 
     if std::env::var("GITHUB_ENV").and_then(not_empty).is_ok() {
         let message = prepare_kv_message(name.as_ref(), &value.to_string())?;
-        issue_file_command("ENV", &message).unwrap();
+        issue_file_command("ENV", message).unwrap();
         return Ok(());
     }
 
@@ -296,7 +299,7 @@ pub fn append_to_path(path: impl AsRef<Path>) -> Result<(), std::env::JoinPathsE
             .into_iter()
             .chain(std::env::split_paths(&old_path));
         let new_path = std::env::join_paths(paths)?;
-        std::env::set_var("PATH", &new_path);
+        std::env::set_var("PATH", new_path);
     }
     Ok(())
 }
@@ -400,7 +403,7 @@ where
 }
 
 /// Gets the values of an multiline input.
-pub fn get_multiline_input<'a>(name: impl AsRef<str>) -> Result<Vec<String>, std::env::VarError> {
+pub fn get_multiline_input(name: impl AsRef<str>) -> Result<Vec<String>, std::env::VarError> {
     let value = get_raw_input(&env::ENV, name)?;
     Ok(value.lines().map(ToOwned::to_owned).collect())
 }
@@ -597,10 +600,7 @@ impl From<AnnotationProperties> for HashMap<String, String> {
             ),
         ]
         .into_iter()
-        .filter_map(|(k, v)| match v {
-            Some(v) => Some((k, v)),
-            None => None,
-        });
+        .filter_map(|(k, v)| v.map(|v| (k, v)));
         Self::from_iter(values)
     }
 }
@@ -700,7 +700,7 @@ pub fn end_group() {
 pub fn save_state(name: String, value: impl std::fmt::Display) {
     if std::env::var("GITHUB_STATE").and_then(not_empty).is_ok() {
         let message = prepare_kv_message(&name, &value.to_string()).unwrap();
-        issue_file_command("STATE", &message).unwrap();
+        issue_file_command("STATE", message).unwrap();
         return;
     }
 
@@ -757,15 +757,9 @@ mod tests {
     fn test_get_empty_input() {
         let input_name = "SOME_NAME";
         let mut env = Env::from_iter([]);
-        assert_eq!(
-            super::get_input_from::<String>(&env, input_name),
-            Ok(None),
-        );
+        assert_eq!(super::get_input_from::<String>(&env, input_name), Ok(None),);
 
         env.insert(input_name.to_string(), "".to_string());
-        assert_eq!(
-            super::get_input_from::<String>(&env, input_name),
-            Ok(None),
-        );
+        assert_eq!(super::get_input_from::<String>(&env, input_name), Ok(None),);
     }
 }

@@ -11,7 +11,7 @@ fn resolve_path(path: impl AsRef<Path>) -> PathBuf {
     if root.join(path.as_ref()).exists() {
         root.join(path.as_ref())
     } else {
-        root.join("src/").join(&path.as_ref())
+        root.join("src/").join(path.as_ref())
     }
 }
 
@@ -67,10 +67,8 @@ pub fn action_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     let derived_methods: TokenStream = manifest
-        .inputs
-        .iter()
-        .map(|(name, _input)| {
-            let fn_name = ident::str_to_ident(&name);
+        .inputs.keys().map(|name| {
+            let fn_name = ident::str_to_ident(name);
             quote! {
                 pub fn #fn_name<T>() -> Result<Option<T>, <T as ::actions::ParseInput>::Error>
                 where T: ::actions::ParseInput {
@@ -81,19 +79,15 @@ pub fn action_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
         .collect();
 
     let input_enum_variants: Vec<_> = manifest
-        .inputs
-        .iter()
-        .map(|(name, _)| {
-            let variant = ident::str_to_enum_variant(&name);
+        .inputs.keys().map(|name| {
+            let variant = ident::str_to_enum_variant(name);
             quote! { #variant }
         })
         .collect();
 
     let input_enum_matches: Vec<_> = manifest
-        .inputs
-        .iter()
-        .map(|(name, _)| {
-            let variant = ident::str_to_enum_variant(&name);
+        .inputs.keys().map(|name| {
+            let variant = ident::str_to_enum_variant(name);
             quote! { #name => Ok(Self::#variant) }
         })
         .collect();
