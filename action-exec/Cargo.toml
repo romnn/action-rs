@@ -2,7 +2,7 @@
 name = "action-exec"
 version = "0.0.3"
 edition = "2021"
-publish = true
+publish = false
 authors = ["romnn <contact@romnn.com>"]
 description = "GitHub actions toolkit"
 license-file = "../LICENSE"
