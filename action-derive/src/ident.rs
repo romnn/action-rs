@@ -7,8 +7,8 @@ fn replace_invalid_identifier_chars(s: &str) -> String {
 
 /// Replaces numeric at the beginning of a string.
 fn replace_numeric_start(s: &str) -> String {
-    if s.chars().next().map(|c| c.is_numeric()).unwrap_or(false) {
-        format!("_{}", s)
+    if s.chars().next().map_or(false, char::is_numeric) {
+        format!("_{s}")
     } else {
         s.to_string()
     }
@@ -41,11 +41,11 @@ fn capitalize(s: &str) -> String {
 /// Converts a string to enum variant identifier.
 pub fn str_to_enum_variant(s: &str) -> syn::Ident {
     let parts: Vec<_> = s.split([' ', '_', '-']).map(capitalize).collect();
-    str_to_ident(&parts.join(""))
+    parse_str(&parts.join(""))
 }
 
 /// Converts a string to identifier
-pub fn str_to_ident(s: &str) -> syn::Ident {
+pub fn parse_str(s: &str) -> syn::Ident {
     if s.is_empty() {
         return quote::format_ident!("empty_");
         // return syn::Ident::new("empty_", Span::call_site());

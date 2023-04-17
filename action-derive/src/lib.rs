@@ -1,7 +1,10 @@
 // #![allow(warnings)]
+#![allow(clippy::missing_panics_doc)]
+
 mod ident;
 mod manifest;
 
+use manifest::Manifest;
 use proc_macro2::TokenStream;
 use quote::quote;
 use std::path::{Path, PathBuf};
@@ -52,41 +55,24 @@ fn parse_derive(ast: &syn::DeriveInput) -> (&syn::Ident, &syn::Generics, PathBuf
 pub fn action_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let ast: syn::DeriveInput = syn::parse2(input.into()).unwrap();
     let (struct_name, generics, manifest_path) = parse_derive(&ast);
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
-    // match &ast.data {
-    //     syn::Data::Struct(syn::DataStruct { fields, .. }) => {
-    //         if !fields.is_empty() {
-    //             panic!("Action can only be derived for empty structs")
-    //         }
-    //     },
-    //     _ => panic!("Action can only be derived for structs"),
-    // }
-
-    let manifest = manifest::Manifest::from_action_yml(manifest_path);
+    let manifest = Manifest::from_action_yml(manifest_path);
     // dbg!(&manifest);
 
-    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
-    let derived_methods: TokenStream = manifest
-        .inputs.keys().map(|name| {
-            let fn_name = ident::str_to_ident(name);
-            quote! {
-                pub fn #fn_name<T>() -> Result<Option<T>, <T as ::actions::ParseInput>::Error>
-                where T: ::actions::ParseInput {
-                    ::actions::get_input::<T>(#name)
-                }
-            }
-        })
-        .collect();
-
     let input_enum_variants: Vec<_> = manifest
-        .inputs.keys().map(|name| {
+        .inputs
+        .keys()
+        .map(|name| {
             let variant = ident::str_to_enum_variant(name);
             quote! { #variant }
         })
         .collect();
 
     let input_enum_matches: Vec<_> = manifest
-        .inputs.keys().map(|name| {
+        .inputs
+        .keys()
+        .map(|name| {
             let variant = ident::str_to_enum_variant(name);
             quote! { #name => Ok(Self::#variant) }
         })
@@ -111,6 +97,63 @@ pub fn action_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
     };
     // eprintln!("{}", pretty_print(&quote! { #input_enum }));
 
+    let parse_impl = quote! {
+        #[allow(clippy::all)]
+        impl #impl_generics ::actions::Parse for #struct_name #ty_generics #where_clause {
+            type Input = #input_enum_ident;
+
+            fn parse<E: ::actions::ReadEnv>(env: &E) -> std::collections::HashMap<Self::Input, Option<String>> {
+                Self::inputs().iter().filter_map(|(name, input)| {
+                    let value = ::actions::get_input_from::<String>(env, name);
+                    let default = input.default.map(|s| s.to_string());
+                    match std::str::FromStr::from_str(&name) {
+                        Ok(variant) => Some((variant, value.unwrap().or(default))),
+                        Err(_) => None,
+                    }
+                }).collect()
+            }
+        }
+    };
+
+    let input_impl_methods = input_impl_methods(&manifest);
+    let input_impl = quote! {
+        #[allow(clippy::all)]
+        impl #impl_generics #struct_name #ty_generics #where_clause {
+            #input_impl_methods
+        }
+    };
+
+    let tokens = quote! {
+        #input_enum
+        #input_impl
+        #parse_impl
+    };
+    // eprintln!("{}", pretty_print(&tokens));
+    tokens.into()
+}
+
+fn input_impl_methods(manifest: &Manifest) -> TokenStream {
+    let Manifest {
+        name,
+        description,
+        author,
+        ..
+    } = manifest;
+
+    let derived_methods: TokenStream = manifest
+        .inputs
+        .keys()
+        .map(|name| {
+            let fn_name = ident::parse_str(name);
+            quote! {
+                pub fn #fn_name<T>() -> Result<Option<T>, <T as ::actions::ParseInput>::Error>
+                where T: ::actions::ParseInput {
+                    ::actions::get_input::<T>(#name)
+                }
+            }
+        })
+        .collect();
+
     let inputs: Vec<_> = manifest
         .inputs
         .iter()
@@ -131,69 +174,34 @@ pub fn action_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
         .collect();
     // eprintln!("{}", pretty_print(&quote! { vec![#(#inputs,)*]; }));
 
-    let parse_impl = quote! {
-        #[allow(clippy::all)]
-        impl #impl_generics ::actions::Parse for #struct_name #ty_generics #where_clause {
-            type Input = #input_enum_ident;
-
-            fn parse<E: ::actions::ReadEnv>(env: &E) -> std::collections::HashMap<Self::Input, Option<String>> {
-                Self::inputs().iter().filter_map(|(name, input)| {
-                    let value = ::actions::get_input_from::<String>(env, name);
-                    let default = input.default.map(|s| s.to_string());
-                    match std::str::FromStr::from_str(&name) {
-                        Ok(variant) => Some((variant, value.unwrap().or(default))),
-                        Err(_) => None,
-                    }
-                }).collect()
-            }
+    quote! {
+        /// Inputs of this action.
+        pub fn inputs() -> ::std::collections::HashMap<
+            &'static str, ::actions::Input<'static>
+        > {
+            static inputs: &'static [(&'static str, ::actions::Input<'static>)] = &[
+                #(#inputs,)*
+            ];
+            inputs.iter().cloned().collect()
         }
-    };
 
-    let manifest::Manifest {
-        name,
-        description,
-        author,
-        ..
-    } = manifest;
-
-    let input_impl = quote! {
-        #[allow(clippy::all)]
-        impl #impl_generics #struct_name #ty_generics #where_clause {
-            /// Inputs of this action.
-            pub fn inputs() -> ::std::collections::HashMap<
-                &'static str, ::actions::Input<'static>
-            > {
-                static inputs: &'static [(&'static str, ::actions::Input<'static>)] = &[
-                    #(#inputs,)*
-                ];
-                inputs.iter().cloned().collect()
-            }
-
-            /// Description of this action.
-            pub fn description() -> &'static str {
-                #description
-            }
-
-            /// Name of this action.
-            pub fn name() -> &'static str {
-                #name
-            }
-
-            /// Author of this trait.
-            pub fn author() -> &'static str {
-                #author
-            }
-
-            #derived_methods
+        /// Description of this action.
+        pub fn description() -> &'static str {
+            #description
         }
-    };
-    let tokens = quote! {
-        #input_enum
-        #parse_impl
-        #input_impl
-    };
-    // eprintln!("{}", pretty_print(&tokens));
-    tokens.into()
+
+        /// Name of this action.
+        pub fn name() -> &'static str {
+            #name
+        }
+
+        /// Author of this trait.
+        pub fn author() -> &'static str {
+            #author
+        }
+
+        #derived_methods
+    }
 }
 
 #[allow(dead_code)]

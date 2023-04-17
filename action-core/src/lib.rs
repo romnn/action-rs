@@ -1,4 +1,5 @@
 // #![allow(warnings)]
+#![allow(warnings)]
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -14,7 +15,7 @@ pub struct Input<'a> {
     pub required: Option<bool>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Hash)]
 pub enum LogLevel {
     Debug,
     Error,
@@ -36,7 +37,7 @@ impl std::fmt::Display for LogLevel {
 pub fn input_env_var(name: impl Into<String>) -> String {
     let mut var: String = name.into();
     if !var.starts_with("INPUT_") {
-        var = format!("INPUT_{}", var);
+        var = format!("INPUT_{var}");
     }
     var = var.replace(' ', "_").to_uppercase();
     var
@@ -55,6 +56,7 @@ pub mod env {
     }
 
     impl Env {
+        #[must_use]
         pub fn new(values: HashMap<String, String>) -> Self {
             let inner = values
                 .into_iter()
@@ -63,6 +65,10 @@ pub mod env {
             Self(inner)
         }
 
+        /// Parses environment from reader.
+        ///
+        /// # Errors
+        /// If the input cannot be parsed as a `HashMap<String, String>`.
         #[cfg(feature = "serde")]
         pub fn from_reader(reader: impl std::io::Read) -> Result<Self, serde_yaml::Error> {
             Ok(Self::new(serde_yaml::from_reader(reader)?))
@@ -98,15 +104,20 @@ pub mod env {
         }
     }
 
-    pub trait ReadEnv {
+    pub trait Read {
+        /// Get value from environment.
+        ///
+        /// # Errors
+        /// When the environment variable is not present.
         fn get(&self, key: &str) -> Result<String, std::env::VarError>;
     }
 
-    pub trait WriteEnv {
+    pub trait Write {
+        /// Set value for environment.
         fn set(&mut self, key: String, value: String);
     }
 
-    impl<T> ReadEnv for T
+    impl<T> Read for T
     where
         T: std::borrow::Borrow<HashMap<String, String>>,
     {
@@ -118,7 +129,7 @@ pub mod env {
         }
     }
 
-    impl<T> WriteEnv for T
+    impl<T> Write for T
     where
         T: std::borrow::BorrowMut<HashMap<String, String>>,
     {
@@ -127,48 +138,55 @@ pub mod env {
         }
     }
 
-    pub struct StdEnv;
+    pub struct Std;
 
-    pub static ENV: StdEnv = StdEnv {};
+    pub static ENV: Std = Std{};
 
-    impl ReadEnv for StdEnv {
+    impl Read for Std {
         fn get(&self, key: &str) -> Result<String, std::env::VarError> {
             std::env::var(key)
         }
     }
 
-    impl WriteEnv for StdEnv {
+    impl Write for Std {
         fn set(&mut self, key: String, value: String) {
             std::env::set_var(key, value);
         }
     }
 
-    pub trait ParseEnv {
+    pub trait Parse {
         type Error: std::error::Error;
 
+        /// Parses environment from a string.
+        ///
+        /// # Errors
+        /// If the input cannot be parsed as a `HashMap<String, String>`.
         fn from_str(config: &str) -> Result<HashMap<String, String>, Self::Error>;
+
+        /// Parses environment from a reader.
+        ///
+        /// # Errors
+        /// If the input cannot be parsed as a `HashMap<String, String>`.
         fn from_reader(reader: impl std::io::Read) -> Result<HashMap<String, String>, Self::Error>;
     }
 }
 
-pub use env::{Env, ReadEnv, WriteEnv};
-
 pub mod utils {
-    /// toPosixPath converts the given path to the posix form.
+    /// `toPosixPath` converts the given path to the posix form.
     ///
     /// On Windows, \\ will be replaced with /.
     pub fn to_posix_path(path: impl AsRef<str>) -> String {
         path.as_ref().replace('\\', "/")
     }
 
-    /// toWin32Path converts the given path to the win32 form.
+    /// `toWin32Path` converts the given path to the win32 form.
     ///
     /// On Linux, / will be replaced with \\.
     pub fn to_win32_path(path: impl AsRef<str>) -> String {
         path.as_ref().replace('/', "\\")
     }
 
-    /// toPlatformPath converts the given path to a platform-specific path.
+    /// `toPlatformPath` converts the given path to a platform-specific path.
     ///
     /// It does this by replacing instances of / and \ with
     /// the platform-specific path separator.
@@ -195,11 +213,11 @@ pub mod utils {
 }
 
 pub mod summary {
-    pub const SUMMARY_ENV_VAR: &str = "GITHUB_STEP_SUMMARY";
-    pub const SUMMARY_DOCS_URL: &str = "https://docs.github.com/actions/using-workflows/workflow-commands-for-github-actions#adding-a-job-summary";
+    pub const ENV_VAR: &str = "GITHUB_STEP_SUMMARY";
+    pub const DOCS_URL: &str = "https://docs.github.com/actions/using-workflows/workflow-commands-for-github-actions#adding-a-job-summary";
 
     #[derive(Debug, PartialEq, Eq, Hash, Clone)]
-    pub struct SummaryTableCell {
+    pub struct TableCell {
         /// Cell content
         pub data: String,
         /// Render cell as header
@@ -210,7 +228,8 @@ pub mod summary {
         pub rowspan: usize,
     }
 
-    impl SummaryTableCell {
+    impl TableCell {
+        #[must_use]
         pub fn new(data: String) -> Self {
             Self {
                 data,
@@ -218,6 +237,7 @@ pub mod summary {
             }
         }
 
+        #[must_use]
         pub fn header(data: String) -> Self {
             Self {
                 data,
@@ -227,10 +247,10 @@ pub mod summary {
         }
     }
 
-    impl Default for SummaryTableCell {
+    impl Default for TableCell {
         fn default() -> Self {
             Self {
-                data: "".to_string(),
+                data: String::new(),
                 header: false,
                 colspan: 1,
                 rowspan: 1,
@@ -239,7 +259,7 @@ pub mod summary {
     }
 
     #[derive(Default, Debug, PartialEq, Eq, Hash, Clone)]
-    pub struct SummaryImageOptions {
+    pub struct ImageOptions {
         /// The width of the image in pixels.
         width: Option<usize>,
 
@@ -252,6 +272,10 @@ pub mod summary {
     // continue with the cache stuff?
 }
 
+/// Prepare key value message.
+///
+/// # Errors
+/// If the value contains the randomly generated delimiter.
 pub fn prepare_kv_message(key: &str, value: &str) -> Result<String, ValueError> {
     use uuid::Uuid;
     let delimiter = format!("ghadelimiter_{}", Uuid::new_v4());
@@ -271,17 +295,21 @@ pub fn prepare_kv_message(key: &str, value: &str) -> Result<String, ValueError> 
 }
 
 /// Sets env variable for this action and future actions in the job.
-pub fn export_var(name: impl AsRef<str>, value: impl ToString) -> Result<(), ValueError> {
-    std::env::set_var(name.as_ref(), value.to_string());
+///
+/// # Errors
+/// If the file command fails.
+pub fn export_var(name: impl AsRef<str>, value: impl Into<String>) -> Result<(), CommandError> {
+    let value = value.into();
+    std::env::set_var(name.as_ref(), &value);
 
     if std::env::var("GITHUB_ENV").and_then(not_empty).is_ok() {
-        let message = prepare_kv_message(name.as_ref(), &value.to_string())?;
-        issue_file_command("ENV", message).unwrap();
+        let message = prepare_kv_message(name.as_ref(), &value)?;
+        issue_file_command("ENV", message)?;
         return Ok(());
     }
 
     issue(
-        CommandBuilder::new("set-env", value)
+        &CommandBuilder::new("set-env", value)
             .property("name", name.as_ref())
             .build(),
     );
@@ -289,11 +317,15 @@ pub fn export_var(name: impl AsRef<str>, value: impl ToString) -> Result<(), Val
 }
 
 /// Registers a secret which will get masked from logs.
-pub fn set_secret(secret: impl ToString) {
-    issue(CommandBuilder::new("add-mask", secret.to_string()).build());
+pub fn set_secret(secret: impl Into<String>) {
+    issue(&CommandBuilder::new("add-mask", secret).build());
 }
 
-pub fn append_to_path(path: impl AsRef<Path>) -> Result<(), std::env::JoinPathsError> {
+/// Prepends a path to the `PATH` environment variable.
+///
+/// # Errors
+/// If the paths can not be joined.
+fn prepend_to_path(path: impl AsRef<Path>) -> Result<(), std::env::JoinPathsError> {
     if let Some(old_path) = std::env::var_os("PATH") {
         let paths = [path.as_ref().to_path_buf()]
             .into_iter()
@@ -304,28 +336,45 @@ pub fn append_to_path(path: impl AsRef<Path>) -> Result<(), std::env::JoinPathsE
     Ok(())
 }
 
-/// Prepends inputPath to the PATH.
-///
-/// For this action and future actions.
-pub fn add_path(path: impl AsRef<Path>) -> Result<(), std::env::JoinPathsError> {
-    let path_string = path.as_ref().to_string_lossy();
-    if std::env::var("GITHUB_PATH").and_then(not_empty).is_ok() {
-        issue_file_command("PATH", &path_string).unwrap();
-    } else {
-        issue(CommandBuilder::new("add-path", path_string).build());
-    }
+#[derive(thiserror::Error, Debug)]
+pub enum AddPathError {
+    #[error(transparent)]
+    File(#[from] FileCommandError),
 
-    append_to_path(path)
+    #[error(transparent)]
+    Join(#[from] std::env::JoinPathsError),
+}
+
+/// Prepends a path to the `PATH` environment variable.
+///
+/// Persisted for this action and future actions.
+///
+/// # Errors
+/// If the file command
+pub fn add_path(path: impl AsRef<Path>) -> Result<(), AddPathError> {
+    let path_string = path.as_ref().to_string_lossy();
+    prepend_to_path(path.as_ref())?;
+
+    if std::env::var("GITHUB_PATH").and_then(not_empty).is_ok() {
+        issue_file_command("PATH", &path_string)?;
+    } else {
+        issue(&CommandBuilder::new("add-path", path_string).build());
+    }
+    Ok(())
 }
 
 pub trait Parse {
     type Input;
-    fn parse<E: ReadEnv>(env: &E) -> HashMap<Self::Input, Option<String>>;
+    fn parse<E: env::Read>(env: &E) -> HashMap<Self::Input, Option<String>>;
 }
 
 pub trait ParseInput: Sized {
     type Error: std::error::Error;
 
+    /// Parse input string to type T.
+    ///
+    /// # Errors
+    /// When the string value cannot be parsed as `Self`.
     fn parse(value: String) -> Result<Self, Self::Error>;
 }
 
@@ -346,12 +395,8 @@ impl ParseInput for bool {
     type Error = ParseError;
     fn parse(value: String) -> Result<Self, Self::Error> {
         match value.to_ascii_lowercase().as_str() {
-            "yes" => Ok(true),
-            "true" => Ok(true),
-            "t" => Ok(true),
-            "no" => Ok(false),
-            "false" => Ok(false),
-            "f" => Ok(false),
+            "yes" | "true" | "t" => Ok(true),
+            "no" | "false" | "f" => Ok(false),
             _ => Err(ParseError::Bool(value)),
         }
     }
@@ -359,7 +404,10 @@ impl ParseInput for bool {
 
 /// Gets the value of an input.
 ///
-/// Attempts to parse as T.
+/// Attempts to parse as T if a value is present, other returns `Ok(None)`.
+///
+/// # Errors
+/// If the variable cannot be parsed.
 pub fn get_input<T>(name: impl AsRef<str>) -> Result<Option<T>, <T as ParseInput>::Error>
 where
     T: ParseInput,
@@ -370,6 +418,10 @@ where
     }
 }
 
+/// Filters empty values.
+///
+/// # Errors
+/// If the value is empty.
 pub fn not_empty(value: String) -> Result<String, std::env::VarError> {
     if value.is_empty() {
         Err(std::env::VarError::NotPresent)
@@ -379,18 +431,24 @@ pub fn not_empty(value: String) -> Result<String, std::env::VarError> {
 }
 
 /// Gets the raw value of an input.
+///
+/// # Errors
+/// If the environment variable is not present.
 pub fn get_raw_input(
-    env: &impl ReadEnv,
+    env: &impl env::Read,
     name: impl AsRef<str>,
 ) -> Result<String, std::env::VarError> {
-    env.get(&input_env_var(name.as_ref())) // .and_then(not_empty)
+    env.get(&input_env_var(name.as_ref())).and_then(not_empty)
 }
 
-/// Gets the value of an input.
+/// Gets the value of an input from an environment.
 ///
-/// Attempts to parse as T.
+/// Attempts to parse as T if a value is present, other returns `Ok(None)`.
+///
+/// # Errors
+/// If the variable cannot be parsed.
 pub fn get_input_from<T>(
-    env: &impl ReadEnv,
+    env: &impl env::Read,
     name: impl AsRef<str>,
 ) -> Result<Option<T>, <T as ParseInput>::Error>
 where
@@ -403,6 +461,9 @@ where
 }
 
 /// Gets the values of an multiline input.
+///
+/// # Errors
+/// If the environment variable is not present.
 pub fn get_multiline_input(name: impl AsRef<str>) -> Result<Vec<String>, std::env::VarError> {
     let value = get_raw_input(&env::ENV, name)?;
     Ok(value.lines().map(ToOwned::to_owned).collect())
@@ -410,11 +471,12 @@ pub fn get_multiline_input(name: impl AsRef<str>) -> Result<Vec<String>, std::en
 
 /// Enables or disables the echoing of commands into stdout for the rest of the step.
 ///
-/// Echoing is disabled by default if ACTIONS_STEP_DEBUG is not set.
+/// Echoing is disabled by default if `ACTIONS_STEP_DEBUG` is not set.
 pub fn set_command_echo(enabled: bool) {
-    issue(CommandBuilder::new("echo", if enabled { "on" } else { "off" }).build());
+    issue(&CommandBuilder::new("echo", if enabled { "on" } else { "off" }).build());
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Hash)]
 pub enum ExitCode {
     /// A code indicating that the action was successful
     Success = 0,
@@ -431,6 +493,7 @@ pub fn fail(message: impl std::fmt::Display) {
 }
 
 /// Gets whether Actions Step Debug is on or not.
+#[must_use]
 pub fn is_debug() -> bool {
     std::env::var("RUNNER_DEBUG")
         .map(|v| v.trim() == "1")
@@ -445,24 +508,28 @@ pub struct CommandBuilder {
 }
 
 impl CommandBuilder {
-    pub fn new(command: impl ToString, message: impl ToString) -> Self {
+    #[must_use]
+    pub fn new(command: impl Into<String>, message: impl Into<String>) -> Self {
         Self {
-            command: command.to_string(),
-            message: message.to_string(),
+            command: command.into(),
+            message: message.into(),
             props: HashMap::new(),
         }
     }
 
-    pub fn property(mut self, key: impl ToString, value: impl ToString) -> Self {
-        self.props.insert(key.to_string(), value.to_string());
+    #[must_use]
+    pub fn property(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.props.insert(key.into(), value.into());
         self
     }
 
+    #[must_use]
     pub fn properties(mut self, props: HashMap<String, String>) -> Self {
         self.props.extend(props.into_iter());
         self
     }
 
+    #[must_use]
     pub fn build(self) -> Command {
         let Self {
             command,
@@ -485,6 +552,7 @@ pub struct Command {
 }
 
 impl Command {
+    #[must_use]
     pub fn new(command: String, message: String, props: HashMap<String, String>) -> Self {
         Self {
             command,
@@ -514,8 +582,8 @@ impl std::fmt::Display for Command {
     }
 }
 
-pub fn issue(cmd: Command) {
-    println!("{}", cmd);
+pub fn issue(cmd: &Command) {
+    println!("{cmd}");
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -526,7 +594,7 @@ pub enum ValueError {
 
 #[derive(thiserror::Error, Debug)]
 pub enum FileCommandError {
-    #[error("missing environment valirable for file command {cmd}")]
+    #[error("missing env variable for file command {cmd}")]
     Missing {
         source: std::env::VarError,
         cmd: String,
@@ -538,16 +606,28 @@ pub enum FileCommandError {
     Value(#[from] ValueError),
 }
 
+#[derive(thiserror::Error, Debug)]
+pub enum CommandError {
+    #[error(transparent)]
+    File(#[from] FileCommandError),
+
+    #[error(transparent)]
+    Value(#[from] ValueError),
+}
+
+/// Issue a file command.
+///
+/// # Errors
+/// When no env variable for the file command exists or writing fails.
 pub fn issue_file_command(
     command: impl AsRef<str>,
     message: impl AsRef<str>,
 ) -> Result<(), FileCommandError> {
     use std::io::Write;
-    let file_path = std::env::var(format!("GITHUB_{}", command.as_ref())).map_err(|source| {
-        FileCommandError::Missing {
-            source,
-            cmd: command.as_ref().to_string(),
-        }
+    let key = format!("GITHUB_{}", command.as_ref());
+    let file_path = std::env::var(key).map_err(|source| FileCommandError::Missing {
+        source,
+        cmd: command.as_ref().to_string(),
     })?;
     let file = std::fs::OpenOptions::new()
         .append(true)
@@ -577,9 +657,12 @@ pub struct AnnotationProperties {
     pub end_column: Option<usize>,
 }
 
-impl From<AnnotationProperties> for HashMap<String, String> {
+impl<H> From<AnnotationProperties> for HashMap<String, String, H>
+where
+    H: std::hash::BuildHasher + Default,
+{
     fn from(props: AnnotationProperties) -> Self {
-        let values = [
+        [
             ("title".to_string(), props.title),
             ("file".to_string(), props.file),
             (
@@ -600,16 +683,20 @@ impl From<AnnotationProperties> for HashMap<String, String> {
             ),
         ]
         .into_iter()
-        .filter_map(|(k, v)| v.map(|v| (k, v)));
-        Self::from_iter(values)
+        .filter_map(|(k, v)| v.map(|v| (k, v)))
+        .collect()
     }
 }
 
 /// Adds an error issue.
-pub fn issue_level(level: LogLevel, message: impl ToString, props: Option<AnnotationProperties>) {
+pub fn issue_level(
+    level: LogLevel,
+    message: impl Into<String>,
+    props: Option<AnnotationProperties>,
+) {
     let props = props.unwrap_or_default();
     issue(
-        CommandBuilder::new(level, message)
+        &CommandBuilder::new(level.to_string(), message)
             .properties(props.into())
             .build(),
     );
@@ -686,43 +773,45 @@ macro_rules! info {
 
 /// Begin an output group.
 ///
-/// Output until the next group_end will be foldable in this group.
-pub fn start_group(name: impl std::fmt::Display) {
-    issue(CommandBuilder::new("group", name).build())
+/// Output until the next `group_end` will be foldable in this group.
+pub fn start_group(name: impl Into<String>) {
+    issue(&CommandBuilder::new("group", name).build());
 }
 
 /// End an output group.
 pub fn end_group() {
-    issue(CommandBuilder::new("endgroup", "").build())
+    issue(&CommandBuilder::new("endgroup", "").build());
 }
 
 /// Saves state for current action, the state can only be retrieved by this action's post job execution.
-pub fn save_state(name: String, value: impl std::fmt::Display) {
+///
+/// # Errors
+/// If the file command fails.
+pub fn save_state(name: impl AsRef<str>, value: impl Into<String>) -> Result<(), CommandError> {
     if std::env::var("GITHUB_STATE").and_then(not_empty).is_ok() {
-        let message = prepare_kv_message(&name, &value.to_string()).unwrap();
-        issue_file_command("STATE", message).unwrap();
-        return;
+        let message = prepare_kv_message(name.as_ref(), &value.into())?;
+        issue_file_command("STATE", message)?;
+        return Ok(());
     }
 
     issue(
-        CommandBuilder::new("save-state", value)
-            .property("name", name)
+        &CommandBuilder::new("save-state", value)
+            .property("name", name.as_ref())
             .build(),
     );
+    Ok(())
 }
 
 /// Gets the value of an state set by this action's main execution.
-pub fn get_state(name: String) -> Option<String> {
-    std::env::var(format!("STATE_{}", name)).ok()
+#[must_use]
+pub fn get_state(name: impl AsRef<str>) -> Option<String> {
+    std::env::var(format!("STATE_{}", name.as_ref())).ok()
 }
 
 /// Wrap an asynchronous function call in a group.
 ///
 /// Returns the same type as the function itself.
-pub async fn group<T>(
-    name: impl std::fmt::Display,
-    fut: impl std::future::Future<Output = T>,
-) -> T {
+pub async fn group<T>(name: impl Into<String>, fut: impl std::future::Future<Output = T>) -> T {
     start_group(name);
     let res: T = fut.await;
 
@@ -732,7 +821,7 @@ pub async fn group<T>(
 
 #[cfg(test)]
 mod tests {
-    use super::Env;
+    use super::env::Env;
 
     #[test]
     fn test_env() {
@@ -759,7 +848,7 @@ mod tests {
         let mut env = Env::from_iter([]);
         assert_eq!(super::get_input_from::<String>(&env, input_name), Ok(None),);
 
-        env.insert(input_name.to_string(), "".to_string());
+        env.insert(input_name.to_string(), String::new());
         assert_eq!(super::get_input_from::<String>(&env, input_name), Ok(None),);
     }
 }
