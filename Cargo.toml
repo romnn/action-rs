@@ -1,0 +1,15 @@
+[workspace]
+members = [
+  "action-*",
+]
+
+[profile.dev]
+opt-level = 0
+debug = 1
+
+# Optimize for size, as actions should be small
+[profile.release]
+lto = true
+strip = true
+codegen-units = 1
+opt-level = 'z'
