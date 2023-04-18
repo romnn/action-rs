@@ -16,10 +16,7 @@ jobs:
         package: ${{ fromJson(needs.feature-matrix.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
+      - uses: dtolnay/rust-toolchain@stable
 
       - name: Lint
         # for now we are not too pedantic
@@ -46,10 +43,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
+      - uses: dtolnay/rust-toolchain@stable
 
       - name: Publish crates (dry-run)
         uses: romnn/publish-crates@main
