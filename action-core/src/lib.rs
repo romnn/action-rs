@@ -140,7 +140,7 @@ pub mod env {
 
     pub struct Std;
 
-    pub static ENV: Std = Std{};
+    pub static ENV: Std = Std {};
 
     impl Read for Std {
         fn get(&self, key: &str) -> Result<String, std::env::VarError> {
@@ -365,7 +365,14 @@ pub fn add_path(path: impl AsRef<Path>) -> Result<(), AddPathError> {
 
 pub trait Parse {
     type Input;
-    fn parse<E: env::Read>(env: &E) -> HashMap<Self::Input, Option<String>>;
+
+    #[must_use]
+    fn parse() -> HashMap<Self::Input, Option<String>> {
+        Self::parse_from(&env::Std)
+    }
+
+    #[must_use]
+    fn parse_from<E: env::Read>(env: &E) -> HashMap<Self::Input, Option<String>>;
 }
 
 pub trait ParseInput: Sized {

@@ -99,12 +99,12 @@ pub fn action_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 
     let parse_impl = quote! {
         #[allow(clippy::all)]
-        impl #impl_generics ::actions::Parse for #struct_name #ty_generics #where_clause {
+        impl #impl_generics ::action_core::Parse for #struct_name #ty_generics #where_clause {
             type Input = #input_enum_ident;
 
-            fn parse<E: ::actions::ReadEnv>(env: &E) -> std::collections::HashMap<Self::Input, Option<String>> {
+            fn parse_from<E: ::action_core::env::Read>(env: &E) -> std::collections::HashMap<Self::Input, Option<String>> {
                 Self::inputs().iter().filter_map(|(name, input)| {
-                    let value = ::actions::get_input_from::<String>(env, name);
+                    let value = ::action_core::get_input_from::<String>(env, name);
                     let default = input.default.map(|s| s.to_string());
                     match std::str::FromStr::from_str(&name) {
                         Ok(variant) => Some((variant, value.unwrap().or(default))),
@@ -146,9 +146,9 @@ fn input_impl_methods(manifest: &Manifest) -> TokenStream {
         .map(|name| {
             let fn_name = ident::parse_str(name);
             quote! {
-                pub fn #fn_name<T>() -> Result<Option<T>, <T as ::actions::ParseInput>::Error>
-                where T: ::actions::ParseInput {
-                    ::actions::get_input::<T>(#name)
+                pub fn #fn_name<T>() -> Result<Option<T>, <T as ::action_core::ParseInput>::Error>
+                where T: ::action_core::ParseInput {
+                    ::action_core::get_input::<T>(#name)
                 }
             }
         })
@@ -163,7 +163,7 @@ fn input_impl_methods(manifest: &Manifest) -> TokenStream {
             let r#default = quote_option(&input.default);
             let required = quote_option(&input.required);
             quote! {
-                (#name, ::actions::Input {
+                (#name, ::action_core::Input {
                     description: #description,
                     deprecation_message: #deprecation_message,
                     default: #r#default,
@@ -177,9 +177,9 @@ fn input_impl_methods(manifest: &Manifest) -> TokenStream {
     quote! {
         /// Inputs of this action.
         pub fn inputs() -> ::std::collections::HashMap<
-            &'static str, ::actions::Input<'static>
+            &'static str, ::action_core::Input<'static>
         > {
-            static inputs: &'static [(&'static str, ::actions::Input<'static>)] = &[
+            static inputs: &'static [(&'static str, ::action_core::Input<'static>)] = &[
                 #(#inputs,)*
             ];
             inputs.iter().cloned().collect()
