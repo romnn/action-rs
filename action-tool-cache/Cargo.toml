@@ -5,6 +5,7 @@ edition = "2021"
 publish = false
 authors = ["romnn <contact@romnn.com>"]
 description = "GitHub actions toolkit"
+license = "MIT"
 license-file = "../LICENSE"
 readme = "../README.md"
 documentation = "https://docs.rs/action-tool-cache"
