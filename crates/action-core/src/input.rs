@@ -45,10 +45,16 @@ pub trait Parse: Sized {
     fn parse(value: OsString) -> Result<Self, Self::Error>;
 }
 
-#[derive(thiserror::Error, Debug, PartialEq, Eq, Hash, Clone)]
+#[derive(thiserror::Error, Debug, PartialEq, Eq, Clone)]
 pub enum ParseError {
     #[error("invalid boolean value \"{0:?}\"")]
     Bool(OsString),
+    #[error("invalid integer value \"{value:?}\"")]
+    Int {
+        value: OsString,
+        #[source]
+        source: std::num::ParseIntError,
+    },
 }
 
 impl Parse for String {
@@ -75,6 +81,17 @@ impl Parse for bool {
             b"no" | b"false" | b"f" => Ok(false),
             _ => Err(ParseError::Bool(value)),
         }
+    }
+}
+
+impl Parse for usize {
+    type Error = ParseError;
+    fn parse(value: OsString) -> Result<Self, Self::Error> {
+        value
+            .to_string_lossy()
+            .to_string()
+            .parse()
+            .map_err(|source| ParseError::Int { value, source })
     }
 }
 
