@@ -1,17 +1,19 @@
 name: release
-
 on:
   push:
     tags:
       - "*"
 
 jobs:
-  publish-crate:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: dtolnay/rust-toolchain@stable
+  tests:
+    uses: ./.github/workflows/test.yaml
 
+  publish-crate:
+    runs-on: ubuntu-24.04
+    needs: [tests]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
       - name: Publish crates
         uses: romnn/publish-crates@main
         with:
