@@ -110,7 +110,7 @@ pub fn action_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 
             fn parse_from<E: ::action_core::env::Read>(env: &E) -> std::collections::HashMap<Self::Input, Option<String>> {
                 Self::inputs().iter().filter_map(|(name, input)| {
-                    let value = env.parse_input::<String>(name);
+                    let value = ::action_core::input::ParseInput::parse_input::<String>(env, name);
                     let default = input.default.map(|s| s.to_string());
                     match std::str::FromStr::from_str(&name) {
                         Ok(variant) => Some((variant, value.unwrap().or(default))),
@@ -154,7 +154,8 @@ fn input_impl_methods(manifest: &Manifest) -> TokenStream {
             quote! {
                 pub fn #fn_name<T>() -> Result<Option<T>, <T as ::action_core::input::Parse>::Error>
                 where T: ::action_core::input::Parse {
-                    ::action_core::env::OsEnv::default().parse_input::<T>(#name)
+                    let env = ::action_core::env::OsEnv::default();
+                    ::action_core::input::ParseInput::parse_input::<T>(&env, #name)
                 }
             }
         })

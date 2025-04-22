@@ -4,15 +4,15 @@ version = 4
 
 [[package]]
 name = "action-artifact"
-version = "0.0.8"
+version = "0.0.9"
 
 [[package]]
 name = "action-cache"
-version = "0.0.8"
+version = "0.0.9"
 
 [[package]]
 name = "action-core"
-version = "0.0.8"
+version = "0.0.9"
 dependencies = [
  "action-derive",
  "color-eyre",
@@ -26,7 +26,7 @@ dependencies = [
 
 [[package]]
 name = "action-derive"
-version = "0.0.8"
+version = "0.0.9"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -37,31 +37,31 @@ dependencies = [
 
 [[package]]
 name = "action-exec"
-version = "0.0.8"
+version = "0.0.9"
 
 [[package]]
 name = "action-github"
-version = "0.0.8"
+version = "0.0.9"
 
 [[package]]
 name = "action-glob"
-version = "0.0.8"
+version = "0.0.9"
 
 [[package]]
 name = "action-http-client"
-version = "0.0.8"
+version = "0.0.9"
 
 [[package]]
 name = "action-io"
-version = "0.0.8"
+version = "0.0.9"
 
 [[package]]
 name = "action-model"
-version = "0.0.8"
+version = "0.0.9"
 
 [[package]]
 name = "action-tool-cache"
-version = "0.0.8"
+version = "0.0.9"
 
 [[package]]
 name = "addr2line"
