@@ -53,5 +53,7 @@ jobs:
       - name: Publish crates (dry-run)
         uses: romnn/publish-crates@main
         with:
+          # break circular depedency by using an older, working version
+          version: v0.0.22
           dry-run: true
           resolve-versions: true

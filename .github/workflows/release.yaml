@@ -17,6 +17,8 @@ jobs:
       - name: Publish crates
         uses: romnn/publish-crates@main
         with:
+          # break circular depedency by using an older, working version
+          version: v0.0.22
           registry-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
           resolve-versions: true
           publish-delay: 30s
