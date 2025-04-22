@@ -1,8 +1,5 @@
 use crate::{env, utils::not_empty};
-use std::{
-    ffi::{OsStr, OsString},
-    os::unix::ffi::OsStrExt,
-};
+use std::ffi::{OsStr, OsString};
 
 #[derive(Default, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Input<'a> {
@@ -12,27 +9,31 @@ pub struct Input<'a> {
     pub required: Option<bool>,
 }
 
+#[cfg(not(target_family = "unix"))]
 pub fn env_var_name(name: impl AsRef<OsStr>) -> OsString {
-    // const PREFIX: &[u8; 6] = b"INPUT_";
-    // const PREFIX: &OsStr = &OsStr::new("INPUT_");
+    let name = name.as_ref().to_string_lossy();
+    if name.starts_with("INPUT_") {
+        name.to_string().into()
+    } else {
+        format!("INPUT_{name}").into()
+    }
+}
+
+#[cfg(target_family = "unix")]
+pub fn env_var_name(name: impl AsRef<OsStr>) -> OsString {
+    use std::os::unix::ffi::OsStrExt;
     let name = name.as_ref();
     let prefix: &OsStr = OsStr::new("INPUT_");
     let mut out = OsString::from(prefix);
-    if name.as_bytes().starts_with(prefix.as_bytes()) {
-        // out.push(name[..prefix.len()].as_ref());
-        // out.push(&name.as_bytes()[..prefix.len()]);
-        // out.push(&name[..prefix.len()]);
-        out.push(OsStr::from_bytes(&name.as_bytes()[..prefix.len()]));
+    if name
+        .as_encoded_bytes()
+        .starts_with(prefix.as_encoded_bytes())
+    {
+        out.push(OsStr::from_bytes(&name.as_encoded_bytes()[..prefix.len()]));
     } else {
         out.push(name);
     }
     out
-    // let mut var = name.as_ref().to_string_lossy().to_string();
-    // if !var.starts_with("INPUT_") {
-    //     var = format!("INPUT_{var}");
-    // }
-    // var = var.replace(' ', "_").to_uppercase();
-    // var.try_into()
 }
 
 pub trait Parse: Sized {
@@ -76,7 +77,7 @@ impl Parse for OsString {
 impl Parse for bool {
     type Error = ParseError;
     fn parse(value: OsString) -> Result<Self, Self::Error> {
-        match value.to_ascii_lowercase().as_os_str().as_bytes() {
+        match value.to_ascii_lowercase().as_os_str().as_encoded_bytes() {
             b"yes" | b"true" | b"t" => Ok(true),
             b"no" | b"false" | b"f" => Ok(false),
             _ => Err(ParseError::Bool(value)),
