@@ -17,20 +17,27 @@ fn resolve_path(path: impl AsRef<Path>) -> PathBuf {
     }
 }
 
-fn quote_option<T: quote::ToTokens>(value: &Option<T>) -> TokenStream {
-    match value {
-        Some(v) => quote! { Some(#v) },
-        None => quote! { None },
+fn quote_option<T: quote::ToTokens>(value: Option<&T>) -> TokenStream {
+    if let Some(v) = value {
+        quote! { Some(#v) }
+    } else {
+        quote! { None }
     }
 }
 
 fn get_attribute(attr: &syn::Attribute) -> String {
-    match &attr.parse_meta().unwrap() {
-        syn::Meta::NameValue(syn::MetaNameValue { lit, .. }) => match lit {
-            syn::Lit::Str(s) => s.value(),
-            _ => panic!("action attribute must be a string"),
-        },
-        _ => panic!("action attribute must be of the form `action = \"...\"`"),
+    match &attr.meta {
+        syn::Meta::NameValue(syn::MetaNameValue { path, value, .. }) => {
+            debug_assert!(path.is_ident("action"));
+            match value {
+                syn::Expr::Lit(syn::ExprLit {
+                    lit: syn::Lit::Str(s),
+                    ..
+                }) => s.value(),
+                _ => panic!("action attribute must be a literal string"),
+            }
+        }
+        _ => panic!(r#"action attribute must be of the form `action = "..."`"#),
     }
 }
 
@@ -41,7 +48,7 @@ fn parse_derive(ast: &syn::DeriveInput) -> (&syn::Ident, &syn::Generics, PathBuf
     let manifests: Vec<_> = ast
         .attrs
         .iter()
-        .filter(|attr| attr.path.is_ident("action"))
+        .filter(|attr| attr.path().is_ident("action"))
         .map(get_attribute)
         .map(resolve_path)
         .collect();
@@ -157,10 +164,10 @@ fn input_impl_methods(manifest: &Manifest) -> TokenStream {
         .inputs
         .iter()
         .map(|(name, input)| {
-            let description = quote_option(&input.description);
-            let deprecation_message = quote_option(&input.deprecation_message);
-            let r#default = quote_option(&input.default);
-            let required = quote_option(&input.required);
+            let description = quote_option(input.description.as_ref());
+            let deprecation_message = quote_option(input.deprecation_message.as_ref());
+            let r#default = quote_option(input.default.as_ref());
+            let required = quote_option(input.required.as_ref());
             quote! {
                 (#name, ::action_core::input::Input {
                     description: #description,

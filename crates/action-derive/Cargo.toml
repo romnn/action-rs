@@ -36,7 +36,7 @@ rustc-args = ["--cfg", "docsrs"]
 
 [dependencies]
 proc-macro2 = "1"
-syn = { version = "1", features = ["full"] }
+syn = { version = "2", features = ["full"] }
 quote = "1"
 
 serde.workspace = true

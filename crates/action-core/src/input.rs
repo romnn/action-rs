@@ -16,7 +16,7 @@ pub fn env_var_name(name: impl AsRef<OsStr>) -> OsString {
     // const PREFIX: &[u8; 6] = b"INPUT_";
     // const PREFIX: &OsStr = &OsStr::new("INPUT_");
     let name = name.as_ref();
-    let prefix: &OsStr = &OsStr::new("INPUT_");
+    let prefix: &OsStr = OsStr::new("INPUT_");
     let mut out = OsString::from(prefix);
     if name.as_bytes().starts_with(prefix.as_bytes()) {
         // out.push(name[..prefix.len()].as_ref());
@@ -107,7 +107,7 @@ where
     E: env::Write,
 {
     fn set_input(&self, name: impl AsRef<OsStr>, value: impl AsRef<OsStr>) {
-        self.set(env_var_name(name.as_ref()), value)
+        self.set(env_var_name(name.as_ref()), value);
     }
 }
 

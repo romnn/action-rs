@@ -22,7 +22,7 @@ fn main() {
 
     // parse single value as type T using string name
     // this is not recommended, as changes to the action.yml file go unnoticed.
-    let env = env::OsEnv::default();
+    let env = env::OsEnv;
     let value: Option<String> = env.parse_input::<String>("input name").unwrap();
     dbg!(&value);
 }

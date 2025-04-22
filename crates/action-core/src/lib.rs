@@ -55,7 +55,7 @@ pub fn prepare_kv_message(key: &str, value: &str) -> Result<String, ValueError> 
 /// # Errors
 /// If the file command fails.
 pub fn export_var(
-    env: impl env::Read + env::Write,
+    env: &(impl env::Read + env::Write),
     name: impl AsRef<str>,
     value: impl Into<String>,
 ) -> Result<(), CommandError> {
@@ -167,7 +167,7 @@ impl CommandBuilder {
 
     #[must_use]
     pub fn properties(mut self, props: HashMap<String, String>) -> Self {
-        self.props.extend(props.into_iter());
+        self.props.extend(props);
         self
     }
 
@@ -271,10 +271,7 @@ pub fn issue_file_command(
         source,
         cmd: command.as_ref().to_string(),
     })?;
-    let file = std::fs::OpenOptions::new()
-        .append(true)
-        .write(true)
-        .open(file_path)?;
+    let file = std::fs::OpenOptions::new().append(true).open(file_path)?;
     let mut file = std::io::BufWriter::new(file);
     writeln!(file, "{}", message.as_ref())?;
     Ok(())
@@ -379,7 +376,7 @@ pub fn issue_level(
 //     issue_command("debug", message, HashMap::new())
 // }
 
-/// Adds an error issue.
+// /// Adds an error issue.
 // pub fn error(message: impl ToString, props: AnnotationProperties) {
 //     issue_level(LogLevel::Error, message, props);
 // }
@@ -460,7 +457,7 @@ pub fn end_group() {
 /// # Errors
 /// If the file command fails.
 pub fn save_state(
-    env: impl env::Read,
+    env: &impl env::Read,
     name: impl AsRef<str>,
     value: impl Into<String>,
 ) -> Result<(), CommandError> {

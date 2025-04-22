@@ -7,7 +7,7 @@ fn replace_invalid_identifier_chars(s: &str) -> String {
 
 /// Replaces numeric at the beginning of a string.
 fn replace_numeric_start(s: &str) -> String {
-    if s.chars().next().map_or(false, char::is_numeric) {
+    if s.chars().next().is_some_and(char::is_numeric) {
         format!("_{s}")
     } else {
         s.to_string()
