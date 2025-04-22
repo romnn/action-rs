@@ -4,21 +4,19 @@ version = 4
 
 [[package]]
 name = "action-artifact"
-version = "0.0.9"
+version = "0.0.10"
 
 [[package]]
 name = "action-cache"
-version = "0.0.9"
+version = "0.0.10"
 
 [[package]]
 name = "action-core"
-version = "0.0.9"
+version = "0.0.10"
 dependencies = [
  "action-derive",
  "color-eyre",
  "parking_lot",
- "serde",
- "serde_yaml",
  "similar-asserts",
  "thiserror",
  "uuid",
@@ -26,7 +24,7 @@ dependencies = [
 
 [[package]]
 name = "action-derive"
-version = "0.0.9"
+version = "0.0.10"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -37,31 +35,31 @@ dependencies = [
 
 [[package]]
 name = "action-exec"
-version = "0.0.9"
+version = "0.0.10"
 
 [[package]]
 name = "action-github"
-version = "0.0.9"
+version = "0.0.10"
 
 [[package]]
 name = "action-glob"
-version = "0.0.9"
+version = "0.0.10"
 
 [[package]]
 name = "action-http-client"
-version = "0.0.9"
+version = "0.0.10"
 
 [[package]]
 name = "action-io"
-version = "0.0.9"
+version = "0.0.10"
 
 [[package]]
 name = "action-model"
-version = "0.0.9"
+version = "0.0.10"
 
 [[package]]
 name = "action-tool-cache"
-version = "0.0.9"
+version = "0.0.10"
 
 [[package]]
 name = "addr2line"

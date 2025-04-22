@@ -8,9 +8,15 @@ pub struct EnvMap {
     inner: Arc<Mutex<HashMap<OsString, OsString>>>,
 }
 
-impl FromIterator<(OsString, OsString)> for EnvMap {
-    fn from_iter<I: IntoIterator<Item = (OsString, OsString)>>(iter: I) -> Self {
-        Self::new(HashMap::from_iter(iter))
+impl<K, V> FromIterator<(K, V)> for EnvMap
+where
+    K: Into<OsString>,
+    V: Into<OsString>,
+{
+    fn from_iter<I: IntoIterator<Item = (K, V)>>(iter: I) -> Self {
+        Self::new(HashMap::from_iter(
+            iter.into_iter().map(|(k, v)| (k.into(), v.into())),
+        ))
     }
 }
 
@@ -19,24 +25,6 @@ impl EnvMap {
     pub fn new(inner: HashMap<OsString, OsString>) -> Self {
         let inner = Arc::new(Mutex::new(inner));
         Self { inner }
-    }
-
-    /// Parses environment from reader.
-    ///
-    /// # Errors
-    /// If the input cannot be parsed as a `HashMap<String, String>`.
-    #[cfg(feature = "serde")]
-    pub fn from_reader(reader: impl std::io::Read) -> Result<Self, serde_yaml::Error> {
-        Ok(Self::new(serde_yaml::from_reader(reader)?))
-    }
-}
-
-#[cfg(feature = "serde")]
-impl std::str::FromStr for EnvMap {
-    type Err = serde_yaml::Error;
-
-    fn from_str(env: &str) -> Result<Self, Self::Err> {
-        Ok(Self::new(serde_yaml::from_str(env)?))
     }
 }
 
@@ -127,7 +115,7 @@ mod tests {
     #[test]
     fn get_env_map() {
         let input_name = "SOME_NAME";
-        let env = EnvMap::from_iter([(input_name.into(), "SET".into())]);
+        let env = EnvMap::from_iter([(input_name, "SET")]);
         sim_assert_eq!(env.get(input_name), Some("SET".into()));
     }
 
