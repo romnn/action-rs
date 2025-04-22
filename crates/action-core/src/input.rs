@@ -12,11 +12,12 @@ pub struct Input<'a> {
 #[cfg(not(target_family = "unix"))]
 pub fn env_var_name(name: impl AsRef<OsStr>) -> OsString {
     let name = name.as_ref().to_string_lossy();
-    if name.starts_with("INPUT_") {
+    let out: OsString = if name.starts_with("INPUT_") {
         name.to_string().into()
     } else {
         format!("INPUT_{name}").into()
-    }
+    };
+    out.to_ascii_uppercase()
 }
 
 #[cfg(target_family = "unix")]
@@ -29,11 +30,11 @@ pub fn env_var_name(name: impl AsRef<OsStr>) -> OsString {
         .as_encoded_bytes()
         .starts_with(prefix.as_encoded_bytes())
     {
-        out.push(OsStr::from_bytes(&name.as_encoded_bytes()[..prefix.len()]));
+        out.push(OsStr::from_bytes(&name.as_encoded_bytes()[prefix.len()..]));
     } else {
         out.push(name);
     }
-    out
+    out.to_ascii_uppercase()
 }
 
 pub trait Parse: Sized {
@@ -96,25 +97,6 @@ impl Parse for usize {
     }
 }
 
-// /// Gets the value of an input.
-// ///
-// /// Attempts to parse as T if a value is present, other returns `Ok(None)`.
-// ///
-// /// # Errors
-// /// If the variable cannot be parsed.
-// pub fn get<T>(
-//     env: impl env::Read,
-//     name: impl AsRef<OsStr>,
-// ) -> Result<Option<T>, <T as Parse>::Error>
-// where
-//     T: Parse,
-// {
-//     match get_raw(env, name) {
-//         Some(input) => Some(T::parse(input)).transpose(),
-//         None => Ok(None),
-//     }
-// }
-
 pub trait SetInput {
     /// Sets an input.
     fn set_input(&self, name: impl AsRef<OsStr>, value: impl AsRef<OsStr>);
@@ -170,25 +152,6 @@ where
     }
 }
 
-// /// Gets the value of an input from an environment.
-// ///
-// /// Attempts to parse as T if a value is present, other returns `Ok(None)`.
-// ///
-// /// # Errors
-// /// If the variable cannot be parsed.
-// pub fn get_from<T>(
-//     env: &impl env::Read,
-//     name: impl AsRef<OsStr>,
-// ) -> Result<Option<T>, <T as Parse>::Error>
-// where
-//     T: Parse,
-// {
-//     match get_raw(env, name) {
-//         Some(input) => Some(T::parse(input)).transpose(),
-//         None => Ok(None),
-//     }
-// }
-
 /// Gets the values of an multiline input.
 ///
 /// # Errors
@@ -206,15 +169,26 @@ pub fn get_multiline(env: &impl env::Read, name: impl AsRef<OsStr>) -> Option<Ve
 #[cfg(test)]
 mod tests {
     use super::{GetInput, ParseInput, SetInput};
-    use crate::env::EnvMap;
+    use crate::env::{EnvMap, Read};
     use similar_asserts::assert_eq as sim_assert_eq;
+
+    #[test]
+    fn test_env_name() {
+        sim_assert_eq!(super::env_var_name("some-input"), "INPUT_SOME-INPUT");
+        sim_assert_eq!(super::env_var_name("INPUT_some-input"), "INPUT_SOME-INPUT");
+        sim_assert_eq!(super::env_var_name("INPUT_SOME-INPUT"), "INPUT_SOME-INPUT");
+        sim_assert_eq!(
+            super::env_var_name("test-INPUT_SOME-INPUT"),
+            "INPUT_TEST-INPUT_SOME-INPUT"
+        );
+    }
 
     #[test]
     fn test_get_non_empty_input() {
         let env = EnvMap::default();
-        let input_name = "some-input";
-        env.set_input(input_name, "SET");
-        sim_assert_eq!(env.get_input(input_name), Some("SET".into()));
+        env.set_input("some-input", "SET");
+        sim_assert_eq!(env.get("INPUT_SOME-INPUT"), Some("SET".into()));
+        sim_assert_eq!(env.get_input("some-input"), Some("SET".into()));
     }
 
     #[test]
