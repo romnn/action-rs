@@ -1,0 +1,51 @@
+[package]
+name = "action-core"
+readme = "../../README.md"
+documentation = "https://docs.rs/action-core"
+keywords = [
+  "actions",
+  "ci-cd",
+  "github",
+  "toolkit",
+  "core",
+]
+publish = true
+
+version.workspace = true
+license.workspace = true
+edition.workspace = true
+authors.workspace = true
+description.workspace = true
+homepage.workspace = true
+repository.workspace = true
+categories.workspace = true
+
+[features]
+default = []
+
+derive = ["dep:action-derive"]
+serde = ["dep:serde", "dep:serde_yaml"]
+
+[package.metadata.cargo-feature-combinations]
+exclude_features = ["default"]
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+rustc-args = ["--cfg", "docsrs"]
+
+[dependencies]
+thiserror.workspace = true
+parking_lot.workspace = true
+
+uuid = { version = "1", features = ["v4"] }
+
+action-derive = { path = "../action-derive", optional = true }
+
+# serialization
+serde = { workspace = true, optional = true }
+serde_yaml = { workspace = true, optional = true }
+
+[dev-dependencies]
+color-eyre.workspace = true
+similar-asserts.workspace = true

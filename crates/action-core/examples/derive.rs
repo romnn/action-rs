@@ -5,7 +5,7 @@ fn main() {
 
 #[cfg(feature = "derive")]
 fn main() {
-    use action_core::{self as action, Action, Parse};
+    use action_core::{Action, Parse, env, input::ParseInput};
     use std::collections::HashMap;
 
     #[derive(Action)]
@@ -22,6 +22,7 @@ fn main() {
 
     // parse single value as type T using string name
     // this is not recommended, as changes to the action.yml file go unnoticed.
-    let value: Option<String> = action::get_input::<String>("input name").unwrap();
+    let env = env::OsEnv::default();
+    let value: Option<String> = env.parse_input::<String>("input name").unwrap();
     dbg!(&value);
 }

@@ -1,0 +1,43 @@
+[package]
+name = "action-derive"
+readme = "../../README.md"
+documentation = "https://docs.rs/action-derive"
+keywords = [
+  "actions",
+  "ci-cd",
+  "github",
+  "toolkit",
+  "derive",
+]
+publish = true
+
+version.workspace = true
+license.workspace = true
+edition.workspace = true
+authors.workspace = true
+description.workspace = true
+homepage.workspace = true
+repository.workspace = true
+categories.workspace = true
+
+[lib]
+proc-macro = true
+
+[features]
+default = []
+
+[package.metadata.cargo-feature-combinations]
+exclude_features = ["default"]
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+rustc-args = ["--cfg", "docsrs"]
+
+[dependencies]
+proc-macro2 = "1"
+syn = { version = "1", features = ["full"] }
+quote = "1"
+
+serde.workspace = true
+serde_yaml.workspace = true

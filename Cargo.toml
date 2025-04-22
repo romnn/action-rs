@@ -1,11 +1,21 @@
 [workspace]
+resolver = "2"
 members = [
-  "action-*",
+  "crates/*",
 ]
 
-[profile.dev]
-opt-level = 0
-debug = 1
+[workspace.package]
+version = "0.0.7"
+edition = "2024"
+authors = ["romnn <contact@romnn.com>"]
+description = "GitHub actions toolkit"
+license = "MIT"
+homepage = "https://github.com/romnn/action-rs"
+repository = "https://github.com/romnn/action-rs"
+categories = [
+  "development-tools",
+  "development-tools::build-utils",
+]
 
 # Optimize for size, as actions should be small
 [profile.release]
@@ -13,3 +23,20 @@ lto = true
 strip = true
 codegen-units = 1
 opt-level = 'z'
+
+[workspace.dependencies]
+thiserror = "2"
+tracing = "0"
+parking_lot = "0"
+
+# serialization
+serde = { version = "1", features = ["derive"] }
+serde_yaml = "0"
+
+# async runtime
+tokio = { version = "1", features = ["full"] }
+futures = "0"
+
+# testing
+color-eyre = "0"
+similar-asserts = "1"
